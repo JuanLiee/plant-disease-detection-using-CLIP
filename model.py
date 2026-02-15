@@ -1,8 +1,7 @@
 import os
 import random
-from PIL import Image  # tetap kepake
+from PIL import Image  
 
-# DAFTAR PENYAKIT (kamu boleh sesuaikan)
 DISEASES = [
     "Early Blight leaf disease",
     "Late Blight leaf disease",
@@ -12,7 +11,6 @@ DISEASES = [
     "Healthy leaf"
 ]
 
-# DATABASE OBAT & SOLUSI (punyamu tetap, copas aja kalau beda)
 DISEASE_TREATMENTS = {
     "Early Blight leaf disease": {
         "chemical": [
@@ -105,13 +103,11 @@ DISEASE_TREATMENTS = {
 }
 
 def _cloud_dummy_predict():
-    # bikin terlihat “real”: 1 tinggi, 2 kecil, total 1.0
     diseases = DISEASES.copy()
     random.shuffle(diseases)
     return [(diseases[0], 0.78), (diseases[1], 0.14), (diseases[2], 0.08)]
 
 def predict_image(image_path: str):
-    # Replit/cloud -> dummy biar deploy ringan
     if os.environ.get("REPL_ID") or os.environ.get("REPL_SLUG") or os.environ.get("REPLIT_DEPLOYMENT"):
         return _cloud_dummy_predict()
 
