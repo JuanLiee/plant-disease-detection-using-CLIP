@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card glass">
+  <div class="card__head">
+    <h2 class="card__title">Settings</h2>
+    <p class="card__desc">Theme & notification preferences</p>
+  </div>
+
+  <form method="POST" class="settings">
+    <label class="field">
+      <span>Preferred Theme</span>
+      <select name="theme">
+        <option value="light" {% if user.preferred_theme == 'light' %}selected{% endif %}>Light</option>
+        <option value="dark" {% if user.preferred_theme == 'dark' %}selected{% endif %}>Dark</option>
+      </select>
+      <small class="muted">Theme applies to all pages after saving.</small>
+    </label>
+
+    <label class="toggle">
+      <input type="checkbox" name="notifications" {% if user.notifications %}checked{% endif %}>
+      <span class="toggle__ui"></span>
+      <span class="toggle__text">Enable notifications</span>
+    </label>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:6px;">
+      <button class="btn primary" type="submit">
+        Save <span class="btn__arrow">→</span>
+      </button>
+
+      <a class="btn" href="/" style="text-decoration:none; color:var(--text); border:1px solid var(--border); background: rgba(255,255,255,.06);">
+        ← Back to Home
+      </a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

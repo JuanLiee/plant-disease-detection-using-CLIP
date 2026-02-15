@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+Werkzeug
+torch
+transformers
+pillow
+gunicorn

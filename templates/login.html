@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth">
+  <div class="card glass auth__card">
+    <h2 class="card__title">Welcome back</h2>
+    <p class="card__desc">Login to continue analyzing leaves.</p>
+
+    <form method="POST" class="auth__form">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" required placeholder="you@example.com">
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required placeholder="••••••••">
+      </label>
+
+      <button class="btn primary" type="submit">Login <span class="btn__arrow">→</span></button>
+    </form>
+
+    <div class="auth__foot">
+      <span class="muted">No account?</span> <a class="link" href="/register">Register</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

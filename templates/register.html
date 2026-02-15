@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth">
+  <div class="card glass auth__card">
+    <h2 class="card__title">Create account</h2>
+    <p class="card__desc">Register to save settings & history.</p>
+
+    <form method="POST" class="auth__form">
+      <label class="field">
+        <span>Username</span>
+        <input type="text" name="username" required placeholder="leafwizard">
+      </label>
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" required placeholder="you@example.com">
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required placeholder="min 8 chars">
+      </label>
+
+      <button class="btn primary" type="submit">Register <span class="btn__arrow">→</span></button>
+    </form>
+
+    <div class="auth__foot">
+      <span class="muted">Already have an account?</span> <a class="link" href="/login">Login</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

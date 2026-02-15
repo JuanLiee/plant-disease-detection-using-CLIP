@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+  <div class="hero__left">
+    <h1 class="title">
+      Diagnose leaf disease in
+      <span class="grad">seconds</span>.
+    </h1>
+    <p class="subtitle">
+      Upload a clear photo of a single leaf. The AI will predict the disease and recommend treatments.
+    </p>
+
+    <div class="badges">
+      <span class="badge">⚡ Fast</span>
+      <span class="badge">🧠 AI Explanation</span>
+      <span class="badge">💊 Treatments</span>
+    </div>
+  </div>
+
+  <div class="hero__right">
+    <div class="statcard">
+      <div class="stat">
+        <div class="stat__num">Top {{ max_results or 3 }}</div>
+        <div class="stat__label">Predictions</div>
+      </div>
+      <div class="stat">
+        <div class="stat__num">{{ (confidence_threshold*100)|round(0) if confidence_threshold is defined else 15 }}%</div>
+        <div class="stat__label">Low-conf warning</div>
+      </div>
+      <div class="stat">
+        <div class="stat__num">CLIP</div>
+        <div class="stat__label">Vision model</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel__grid">
+    <!-- Upload -->
+    <div class="card glass">
+      <div class="card__head">
+        <h2 class="card__title">Upload Leaf Image</h2>
+        <p class="card__desc">Drag & drop or browse. JPG/PNG only.</p>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data" class="upload" id="uploadForm">
+        <label class="dropzone" for="imageInput" id="dropzone">
+          <div class="dropzone__icon">⬆️</div>
+          <div class="dropzone__text">
+            <div class="dropzone__primary">Drop your image here</div>
+            <div class="dropzone__secondary">or click to browse</div>
+          </div>
+          <input id="imageInput" type="file" name="image" accept="image/png,image/jpeg" required hidden>
+        </label>
+
+        <div class="preview" id="previewWrap" style="display:none;">
+          <img id="previewImg" alt="Preview"/>
+          <div class="preview__meta">
+            <div class="preview__name" id="previewName"></div>
+            <div class="preview__hint">Make sure the leaf is centered & well-lit.</div>
+          </div>
+        </div>
+
+        <button class="btn primary" id="btnSubmit" type="submit">
+          <span class="btn__spark"></span>
+          Analyze Leaf
+          <span class="btn__arrow">→</span>
+        </button>
+
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <div>
+            <div class="loading__title">Analyzing…</div>
+            <div class="loading__sub">Running vision model + generating explanation</div>
+          </div>
+        </div>
+      </form>
+
+      {% if error %}
+        <div class="alert danger">{{ error }}</div>
+      {% endif %}
+      {% if warning %}
+        <div class="alert warning">{{ warning }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Results -->
+    <div class="card glass">
+      <div class="card__head">
+        <h2 class="card__title">Results</h2>
+        <p class="card__desc">Prediction + confidence ranking</p>
+      </div>
+
+      {% if image_url %}
+        <div class="resultImage">
+          <img src="{{ image_url }}" alt="Uploaded leaf image">
+        </div>
+      {% else %}
+        <div class="empty">
+          <div class="empty__icon">🧪</div>
+          <div class="empty__title">No analysis yet</div>
+          <div class="empty__desc">Upload an image to get predictions and treatments.</div>
+        </div>
+      {% endif %}
+
+      {% if result %}
+        <div class="pred">
+          {% for d, c in result %}
+            <div class="pred__row">
+              <div class="pred__left">
+                <div class="pred__name">{{ d }}</div>
+                <div class="pred__bar">
+                  <div class="pred__fill" style="width: {{ c }}%"></div>
+                </div>
+              </div>
+              <div class="pred__pct">{{ c }}%</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Explanation + Treatment -->
+  <div class="panel__grid2">
+    <div class="card glass">
+      <div class="card__head">
+        <h2 class="card__title">AI Explanation</h2>
+        <p class="card__desc">Overview, causes, symptoms, solutions</p>
+      </div>
+
+      {% if explanation %}
+        <pre class="ai">{{ explanation }}</pre>
+      {% else %}
+        <div class="empty small">
+          <div class="empty__icon">💡</div>
+          <div class="empty__title">Waiting for analysis</div>
+          <div class="empty__desc">Your AI explanation will appear here.</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card glass">
+      <div class="card__head">
+        <h2 class="card__title">Recommended Treatments</h2>
+        <p class="card__desc">Chemical, organic, and prevention tips</p>
+      </div>
+
+      {% if treatment %}
+        <div class="treatments">
+          <div class="treatbox">
+            <div class="treatbox__title">💊 Chemical</div>
+            {% if treatment.chemical %}
+              <ul class="list">
+                {% for item in treatment.chemical %}
+                  <li><a class="link" href="{{ item.link }}" target="_blank">{{ item.name }}</a></li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="muted">No chemical suggestions.</div>
+            {% endif %}
+          </div>
+
+          <div class="treatbox">
+            <div class="treatbox__title">🌱 Organic</div>
+            {% if treatment.organic %}
+              <ul class="list">
+                {% for item in treatment.organic %}
+                  <li><a class="link" href="{{ item.link }}" target="_blank">{{ item.name }}</a></li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="muted">No organic suggestions.</div>
+            {% endif %}
+          </div>
+
+          <div class="treatbox">
+            <div class="treatbox__title">🛡️ Prevention</div>
+            {% if treatment.prevention %}
+              <ul class="list">
+                {% for tip in treatment.prevention %}
+                  <li>{{ tip }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="muted">No prevention tips.</div>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="empty small">
+          <div class="empty__icon">💊</div>
+          <div class="empty__title">No treatment yet</div>
+          <div class="empty__desc">Treatments will show after analysis.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}
