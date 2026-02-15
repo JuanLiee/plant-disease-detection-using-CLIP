@@ -7,7 +7,7 @@ import os
 
 # ================= CONFIG =================
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # nanti deploy ganti env var
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -35,46 +35,55 @@ def get_current_user():
 # ================= ROUTES LOGIN & REGISTER =================
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    user = get_current_user()
+
     if request.method == "POST":
         username = request.form["username"].strip()
         email = request.form["email"].strip().lower()
         password = request.form["password"]
 
         if User.query.filter_by(email=email).first():
-            return "Email already registered"
+            flash("Email already registered", "error")
+            return redirect("/register")
 
         if User.query.filter_by(username=username).first():
-            return "Username already taken"
+            flash("Username already taken", "error")
+            return redirect("/register")
 
-        user = User(username=username, email=email)
-        user.set_password(password)
-        db.session.add(user)
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)
+        db.session.add(new_user)
         db.session.commit()
+
+        flash("Register success ✅ Please login.", "success")
         return redirect("/login")
 
-    return render_template("register.html")
-
+    return render_template("register.html", user=user)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    user = get_current_user()
+
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         password = request.form["password"]
 
-        user = User.query.filter_by(email=email).first()
-        if user and user.check_password(password):
-            session["user_id"] = user.id
+        u = User.query.filter_by(email=email).first()
+        if u and u.check_password(password):
+            session["user_id"] = u.id
+            flash("Welcome back ✅", "success")
             return redirect("/")
-        return "Login failed"
 
-    return render_template("login.html")
+        flash("Email / password wrong ❌", "error")
+        return redirect("/login")
 
+    return render_template("login.html", user=user)
 
 @app.route("/logout")
 def logout():
     session.pop("user_id", None)
+    flash("Logged out 👋", "success")
     return redirect("/login")
-
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
@@ -124,7 +133,6 @@ def index():
         path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(path)
 
-        # ✅ biar bisa dipakai di <img src="">
         image_url = url_for("static", filename=f"uploads/{filename}")
 
         # ===== AI PREDICTION =====
@@ -138,18 +146,33 @@ def index():
         result = [(label, round(conf * 100, 2)) for label, conf in predictions[:MAX_RESULTS]]
         top_label, top_conf = predictions[0]
 
-        # ===== OLLAMA EXPLANATION + FALLBACK (buat cloud) =====
+        # ===== AI EXPLANATION (Ollama if available, otherwise fallback) =====
         try:
             explanation = ask_ollama(top_label)
+            if not explanation or not explanation.strip():
+                raise RuntimeError("Empty Ollama output")
         except Exception as e:
             print("Ollama failed:", e)
+
+            t = DISEASE_TREATMENTS.get(top_label, {"chemical": [], "organic": [], "prevention": []})
+            chem = "\n".join([f"- {x['name']}" for x in t.get("chemical", [])]) or "- (none)"
+            org = "\n".join([f"- {x['name']}" for x in t.get("organic", [])]) or "- (none)"
+            prev = "\n".join([f"- {x}" for x in t.get("prevention", [])]) or "- (none)"
+
             explanation = (
-                f"Disease Overview:\n{top_label}\n\n"
-                "Possible Causes:\n- Pathogen infection (fungal/bacterial)\n- High humidity / poor airflow\n\n"
-                "Common Symptoms:\n- Spots, discoloration, curling\n- Leaf yellowing or mold\n\n"
-                "Suggested Solutions:\n- Improve airflow and reduce leaf wetness\n"
-                "- Remove infected leaves\n"
-                "- Consider suitable fungicide if needed\n"
+                f"Disease Overview:\n"
+                f"{top_label} ({round(top_conf*100, 2)}% confidence)\n\n"
+                f"Possible Causes:\n"
+                f"- Pathogens (fungal/bacterial) affecting leaves\n"
+                f"- High humidity / poor airflow\n"
+                f"- Water splashing onto foliage\n\n"
+                f"Common Symptoms:\n"
+                f"- Spots, discoloration, curling, or mold\n"
+                f"- Yellowing or wilting in affected areas\n\n"
+                f"Suggested Solutions:\n"
+                f"Organic:\n{org}\n\n"
+                f"Chemical:\n{chem}\n\n"
+                f"Prevention Tips:\n{prev}\n"
             )
 
         # ===== LOOKUP OBAT & SOLUSI =====
@@ -169,11 +192,10 @@ def index():
         error=error,
         user=user,
         max_results=MAX_RESULTS,
-        confidence_threshold=CONFIDENCE_THRESHOLD
+        confidence_threshold=CONFIDENCE_THRESHOLD,
     )
 
 # ================= MAIN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
