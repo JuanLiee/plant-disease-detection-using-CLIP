@@ -108,17 +108,13 @@ def _cloud_dummy_predict():
     return [(diseases[0], 0.78), (diseases[1], 0.14), (diseases[2], 0.08)]
 
 def predict_image(image_path: str):
+    # Cloud / Replit -> dummy
     if os.environ.get("REPL_ID") or os.environ.get("REPL_SLUG") or os.environ.get("REPLIT_DEPLOYMENT"):
         return _cloud_dummy_predict()
 
-    # Local -> kamu boleh balik ke model asli (kalau mau)
-    # Kalau lu belum siap pasang torch local, ini tetap jalan dummy juga.
-    try:
-        import torch
-        from transformers import CLIPProcessor, CLIPModel
-    except Exception as e:
-        print("Local torch/clip not available, fallback to dummy:", e)
-        return _cloud_dummy_predict()
+    # Local only -> real model (opsional)
+    import torch
+    from transformers import CLIPProcessor, CLIPModel
 
     device = "cpu"
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
