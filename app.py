@@ -32,6 +32,47 @@ def get_current_user():
         return User.query.get(session["user_id"])
     return None
 
+def is_cloud_env() -> bool:
+    # Replit / cloud env markers
+    return bool(os.environ.get("REPL_ID") or os.environ.get("REPL_SLUG") or os.environ.get("REPLIT_DEPLOYMENT"))
+
+def make_fallback_explanation(top_label: str, top_conf: float) -> str:
+    t = DISEASE_TREATMENTS.get(top_label, {"chemical": [], "organic": [], "prevention": []})
+    chem = "\n".join([f"- {x['name']}" for x in t.get("chemical", [])]) or "- (none)"
+    org  = "\n".join([f"- {x['name']}" for x in t.get("organic", [])]) or "- (none)"
+    prev = "\n".join([f"- {x}" for x in t.get("prevention", [])]) or "- (none)"
+
+    return (
+        f"Disease Overview:\n"
+        f"{top_label} ({round(top_conf*100, 2)}% confidence)\n\n"
+        f"Possible Causes:\n"
+        f"- Pathogens (fungal/bacterial) affecting leaves\n"
+        f"- High humidity / poor airflow\n"
+        f"- Water splashing onto foliage\n\n"
+        f"Common Symptoms:\n"
+        f"- Spots, discoloration, curling, or mold\n"
+        f"- Yellowing or wilting in affected areas\n\n"
+        f"Suggested Solutions:\n"
+        f"Organic:\n{org}\n\n"
+        f"Chemical:\n{chem}\n\n"
+        f"Prevention Tips:\n{prev}\n"
+    )
+
+def looks_like_ollama_error(text: str) -> bool:
+    if not text:
+        return True
+    bad_markers = [
+        "ai explanation failed",
+        "ai explanation timed out",
+        "ai could not generate",
+        "internal error",
+        "timed out",
+        "could not generate",
+        "failed to get explanation",
+    ]
+    lower = text.lower()
+    return any(m in lower for m in bad_markers)
+
 # ================= ROUTES LOGIN & REGISTER =================
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -120,7 +161,6 @@ def index():
             return render_template("index.html", error=error, user=user)
 
         file = request.files["image"]
-
         if file.filename == "":
             error = "No image selected"
             return render_template("index.html", error=error, user=user)
@@ -146,37 +186,22 @@ def index():
         result = [(label, round(conf * 100, 2)) for label, conf in predictions[:MAX_RESULTS]]
         top_label, top_conf = predictions[0]
 
-        # ===== AI EXPLANATION (Ollama if available, otherwise fallback) =====
-        try:
-            explanation = ask_ollama(top_label)
-            if not explanation or not explanation.strip():
-                raise RuntimeError("Empty Ollama output")
-        except Exception as e:
-            print("Ollama failed:", e)
-
-            t = DISEASE_TREATMENTS.get(top_label, {"chemical": [], "organic": [], "prevention": []})
-            chem = "\n".join([f"- {x['name']}" for x in t.get("chemical", [])]) or "- (none)"
-            org = "\n".join([f"- {x['name']}" for x in t.get("organic", [])]) or "- (none)"
-            prev = "\n".join([f"- {x}" for x in t.get("prevention", [])]) or "- (none)"
-
-            explanation = (
-                f"Disease Overview:\n"
-                f"{top_label} ({round(top_conf*100, 2)}% confidence)\n\n"
-                f"Possible Causes:\n"
-                f"- Pathogens (fungal/bacterial) affecting leaves\n"
-                f"- High humidity / poor airflow\n"
-                f"- Water splashing onto foliage\n\n"
-                f"Common Symptoms:\n"
-                f"- Spots, discoloration, curling, or mold\n"
-                f"- Yellowing or wilting in affected areas\n\n"
-                f"Suggested Solutions:\n"
-                f"Organic:\n{org}\n\n"
-                f"Chemical:\n{chem}\n\n"
-                f"Prevention Tips:\n{prev}\n"
-            )
+        # ===== AI EXPLANATION (Local Ollama, Cloud fallback) =====
+        if is_cloud_env():
+            explanation = make_fallback_explanation(top_label, top_conf)
+        else:
+            try:
+                explanation = ask_ollama(top_label)
+                if (not explanation) or (not explanation.strip()) or looks_like_ollama_error(explanation):
+                    raise RuntimeError("Ollama unavailable / bad output")
+            except Exception as e:
+                print("Ollama failed:", e)
+                explanation = make_fallback_explanation(top_label, top_conf)
 
         # ===== LOOKUP OBAT & SOLUSI =====
-        treatment = DISEASE_TREATMENTS.get(top_label, {"chemical": [], "organic": [], "prevention": []})
+        treatment = DISEASE_TREATMENTS.get(
+            top_label, {"chemical": [], "organic": [], "prevention": []}
+        )
 
         # ===== WARNING =====
         if top_conf < CONFIDENCE_THRESHOLD:
